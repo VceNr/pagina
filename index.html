@@ -3,143 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Usuarios</title>
+    <title>Registro e Inicio de Sesión</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        table, th, td {
-            border: 1px solid black;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        form {
-            margin-bottom: 20px;
-        }
-        input[type="text"], input[type="email"] {
-            padding: 8px;
-            width: calc(100% - 20px);
-            margin-bottom: 10px;
-        }
-        button {
-            padding: 10px 15px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #218838;
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>Bienvenido</h1>
 
-    <h1>Gestión de Usuarios</h1>
+        <div class="form-container">
+            <form id="loginForm">
+                <h2>Iniciar Sesión</h2>
+                <input type="email" id="loginCorreo" placeholder="Correo" required>
+                <input type="password" id="loginPassword" placeholder="Contraseña" required>
+                <button type="submit">Iniciar Sesión</button>
+            </form>
+            <button id="showRegisterForm">¿No tienes cuenta? Regístrate aquí</button>
+        </div>
 
-    <!-- Formulario para agregar usuarios -->
-    <form id="usuarioForm">
-        <label for="nombre">Nombre:</label>
-        <input type="text" id="nombre" name="nombre" required><br>
-        <label for="correo">Correo:</label>
-        <input type="email" id="correo" name="correo" required><br>
-        <button type="submit">Agregar Usuario</button>
-    </form>
-
-    <!-- Tabla para mostrar la lista de usuarios -->
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Correo</th>
-            </tr>
-        </thead>
-        <tbody id="usuarios-tbody">
-            <!-- Los usuarios se agregarán aquí dinámicamente -->
-        </tbody>
-    </table>
+        <div class="form-container hidden" id="registerContainer">
+            <form id="registerForm">
+                <h2>Registro</h2>
+                <input type="text" id="registerNombre" placeholder="Nombre" required>
+                <input type="email" id="registerCorreo" placeholder="Correo" required>
+                <input type="password" id="registerPassword" placeholder="Contraseña" required>
+                <button type="submit">Registrar</button>
+            </form>
+            <button id="showLoginForm">Ya tengo cuenta. Iniciar sesión</button>
+        </div>
+    </div>
 
     <script>
-        // Función para cargar y mostrar los usuarios
-        async function cargarUsuarios() {
+        // Mostrar el formulario de registro
+        document.getElementById('showRegisterForm').addEventListener('click', () => {
+            document.getElementById('registerContainer').classList.remove('hidden');
+            document.querySelector('.form-container:not(#registerContainer)').classList.add('hidden');
+        });
+
+        // Mostrar el formulario de inicio de sesión
+        document.getElementById('showLoginForm').addEventListener('click', () => {
+            document.getElementById('registerContainer').classList.add('hidden');
+            document.querySelector('.form-container:not(#registerContainer)').classList.remove('hidden');
+        });
+
+        // Manejar el registro de usuarios
+        document.getElementById('registerForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const nombre = document.getElementById('registerNombre').value;
+            const correo = document.getElementById('registerCorreo').value;
+            const contrasena = document.getElementById('registerPassword').value;
+
             try {
-                const response = await fetch('/usuarios');
-                if (!response.ok) {
-                    throw new Error('Error al cargar usuarios');
-                }
-                const data = await response.json();
-                const tbody = document.getElementById('usuarios-tbody');
-
-                // Limpiar el contenido previo
-                tbody.innerHTML = '';
-
-                // Iterar sobre los usuarios y agregarlos a la tabla
-                data.forEach(usuario => {
-                    const row = document.createElement('tr');
-
-                    // Crear y agregar las celdas
-                    const idCell = document.createElement('td');
-                    idCell.textContent = usuario.id; // Suponiendo que existe una columna id
-                    row.appendChild(idCell);
-
-                    const nombreCell = document.createElement('td');
-                    nombreCell.textContent = usuario.nombre; // Suponiendo que existe una columna nombre
-                    row.appendChild(nombreCell);
-
-                    const correoCell = document.createElement('td');
-                    correoCell.textContent = usuario.correo; // Suponiendo que existe una columna correo
-                    row.appendChild(correoCell);
-
-                    // Agregar la fila al tbody
-                    tbody.appendChild(row);
+                const response = await fetch('/usuarios', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ nombre, correo, contrasena }), // Asegúrate de usar 'contrasena' aquí
                 });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(`Error: ${error}`);
+                }
+
+                const data = await response.text();
+                console.log(data); // Mensaje de éxito
+                alert('Usuario registrado exitosamente');
+                // Regresar al formulario de inicio de sesión
+                document.getElementById('registerContainer').classList.add('hidden');
+                document.querySelector('.form-container:not(#registerContainer)').classList.remove('hidden');
             } catch (error) {
-                console.error('Error al obtener la lista de usuarios:', error);
+                console.error('Error al agregar usuario:', error.message);
+                alert('Error al registrar el usuario');
             }
-        }
+        });
 
-        // Llamar a la función para cargar los usuarios al cargar la página
-        window.onload = cargarUsuarios;
+        // Manejar el inicio de sesión y redirigir a otra página
+        document.getElementById('loginForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const correo = document.getElementById('loginCorreo').value;
+            const contrasena = document.getElementById('loginPassword').value; 
 
-        // Manejar el envío del formulario para agregar un nuevo usuario
-        const form = document.getElementById('usuarioForm');
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const nombre = document.getElementById('nombre').value;
-            const correo = document.getElementById('correo').value;
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ correo, contrasena }), 
+                });
 
-            const response = await fetch('/usuarios', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ nombre, correo })
-            });
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(`Error: ${error}`);
+                }
 
-            if (response.ok) {
-                alert('Usuario agregado exitosamente');
-                // Recargar la lista de usuarios después de agregar uno nuevo
-                cargarUsuarios();
-                // Limpiar el formulario
-                form.reset();
-            } else {
-                const errorText = await response.text();
-                alert('Error al agregar el usuario: ' + errorText);
+                const data = await response.text(); // Aquí recibimos el mensaje de éxito
+                console.log(data); // Mensaje de éxito en el login
+                alert('Login exitoso');
+
+                // Redirigir a otra página (por ejemplo, home.html)
+                window.location.href = 'home.html'; // Cambia 'home.html' por la página que desees
+            } catch (error) {
+                console.error('Error en el login:', error.message);
+                alert('Error en el login: ' + error.message);
             }
         });
     </script>
-
 </body>
 </html>
