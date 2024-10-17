@@ -31,7 +31,7 @@ app.use(express.static(path.join(__dirname))); // Asegúrate de que el CSS está
 
 // Ruta para servir el archivo HTML
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'front/index.html'));
 });
 
 // Conectar a la base de datos

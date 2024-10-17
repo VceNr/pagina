@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro e Inicio de Sesión</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
     <style>
         .hidden {
             display: none;
@@ -108,7 +108,7 @@
                 alert('Login exitoso');
 
                 // Redirigir a otra página (por ejemplo, home.html)
-                window.location.href = 'home.html'; // Cambia 'home.html' por la página que desees
+                window.location.href = 'front/home.html'; // Cambia 'home.html' por la página que desees
             } catch (error) {
                 console.error('Error en el login:', error.message);
                 alert('Error en el login: ' + error.message);
