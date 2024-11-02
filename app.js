@@ -115,3 +115,27 @@ app.get('/productos', async (req, res) => {
         res.status(500).send('Error al obtener los productos');
     }
 });
+app.post('/productos', async (req, res) => {
+    const { nombre, descripcion, precio, cantidad_en_stock } = req.body;
+
+    if (!nombre || !descripcion || !precio || !cantidad_en_stock) {
+        return res.status(400).send('Faltan datos requeridos: nombre, descripcion, precio y cantidad_en_stock');
+    }
+
+    try {
+        const request = new sql.Request();
+        const query = `INSERT INTO productos (nombre, descripcion, precio, cantidad_en_stock, fecha_creacion) 
+                       VALUES (@nombre, @descripcion, @precio, @cantidad_en_stock, GETDATE())`;
+
+        request.input('nombre', sql.NVarChar, nombre);
+        request.input('descripcion', sql.NVarChar, descripcion);
+        request.input('precio', sql.Decimal, precio);
+        request.input('cantidad_en_stock', sql.Int, cantidad_en_stock);
+
+        await request.query(query);
+        res.status(201).send('Producto agregado exitosamente');
+    } catch (error) {
+        console.error('Error al agregar el producto:', error.message);
+        res.status(500).send('Error al agregar el producto en la base de datos: ' + error.message);
+    }
+});
