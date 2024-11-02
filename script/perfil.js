@@ -27,3 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         alert('No se pudo cargar la información del usuario.'); // Alertar al usuario
     }
 });
+document.getElementById("logoutButton").addEventListener("click", () => {
+    localStorage.removeItem("token"); // or sessionStorage.removeItem("token")
+    window.location.href = "/"; // Redirect to the login page or home
+});
