@@ -53,16 +53,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         const cantidad_en_stock = parseInt(document.getElementById("cantidad_en_stock").value);
 
         try {
+            const token = localStorage.getItem("token");
             const response = await fetch('/productos', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // Incluir el token en la cabecera
                 },
                 body: JSON.stringify({ nombre, descripcion, precio, cantidad_en_stock })
             });
 
             if (!response.ok) {
-                throw new Error('Error al agregar el producto');
+                const errorText = await response.text();
+                throw new Error(errorText || 'Error al agregar el producto');
             }
 
             alert('Producto agregado exitosamente');
@@ -70,7 +73,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             await cargarProductos(); // Recargar la lista de productos
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al agregar el producto');
+            alert('Error al agregar el producto: ' + error.message);
         }
     });
+
+    // Función para verificar el token al cargar la página
+    const verificarToken = () => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            alert('No estás autenticado. Por favor, inicia sesión.');
+            window.location.href = 'index.html'; // Redirigir a la página de inicio de sesión
+        }
+    };
+
+    verificarToken(); // Verificar el token al cargar la página
 });

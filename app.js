@@ -3,6 +3,8 @@ const cors = require('cors');
 const sql = require('mssql');
 const path = require('path');
 const bodyParser = require('body-parser');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 
@@ -13,7 +15,7 @@ const config = {
     server: 'proyecz.database.windows.net',
     database: 'proyecto',
     options: {
-        encrypt: true, // Azure requiere conexiones encriptadas
+        encrypt: true,
         trustServerCertificate: false
     },
 };
@@ -23,11 +25,7 @@ const PORT = process.env.PORT || 3000;
 app.set("port", PORT);
 app.use(bodyParser.json());
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Servir archivos estáticos (CSS)
-app.use(express.static(path.join(__dirname))); // Asegúrate de que el CSS está en la misma carpeta
+app.use(express.static(path.join(__dirname))); // Servir archivos estáticos
 
 // Ruta para servir el archivo HTML
 app.get('/', (req, res) => {
@@ -37,13 +35,11 @@ app.get('/', (req, res) => {
 // Conectar a la base de datos
 sql.connect(config)
     .then(() => {
-        console.log('Conexión exitosa a la base de datos de Azure SQL.');
         app.listen(app.get("port"), () => {
-            console.log("Server on port", app.get("port"));
+            // Solo se mantiene el mensaje de inicio del servidor
         });
     })
     .catch(err => {
-        console.error('Error conectando a la base de datos:', err);
         process.exit(1);
     });
 
@@ -51,23 +47,24 @@ sql.connect(config)
 app.post('/usuarios', async (req, res) => {
     const { nombre, correo, contrasena } = req.body;
 
+    // Validar datos
     if (!nombre || !correo || !contrasena) {
-        return res.status(400).send('Faltan datos requeridos: nombre, correo y contrasena');
+        return res.status(400).json({ error: 'Faltan datos requeridos: nombre, correo y contrasena' });
     }
 
     try {
+        const hashedPassword = await bcrypt.hash(contrasena, 10);
         const request = new sql.Request();
         const query = `INSERT INTO dbo.usuarios (nombre, correo, contrasena) VALUES (@nombre, @correo, @contrasena)`;
 
         request.input('nombre', sql.NVarChar, nombre);
         request.input('correo', sql.NVarChar, correo);
-        request.input('contrasena', sql.NVarChar, contrasena); // Guardar la contraseña sin hashear
+        request.input('contrasena', sql.NVarChar, hashedPassword);
 
         await request.query(query);
-        res.status(201).send('Usuario agregado exitosamente');
+        res.status(201).json({ message: 'Usuario agregado exitosamente' });
     } catch (error) {
-        console.error('Error al agregar el usuario:', error.message);
-        res.status(500).send('Error al agregar el usuario en la base de datos: ' + error.message);
+        res.status(500).json({ error: 'Error al agregar el usuario en la base de datos: ' + error.message });
     }
 });
 
@@ -75,9 +72,9 @@ app.post('/usuarios', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { correo, contrasena } = req.body;
 
-    // Verifica si faltan datos
+    // Validar datos
     if (!correo || !contrasena) {
-        return res.status(400).send('Faltan datos requeridos: correo y contrasena');
+        return res.status(400).json({ error: 'Faltan datos requeridos: correo y contrasena' });
     }
 
     try {
@@ -85,41 +82,65 @@ app.post('/login', async (req, res) => {
         request.input('correo', sql.NVarChar, correo);
         const result = await request.query('SELECT * FROM dbo.usuarios WHERE correo = @correo');
 
-        // Verifica si se encontró el usuario
         if (result.recordset.length === 0) {
-            return res.status(401).send('Usuario no encontrado');
+            return res.status(401).json({ error: 'Usuario no encontrado' });
         }
-        
+
         const user = result.recordset[0];
 
-        // Aquí se compara la contraseña directamente
-        if (user.contrasena !== contrasena) {
-            return res.status(401).send('Contraseña incorrecta');
+        // Verificar la contraseña
+        const match = await bcrypt.compare(contrasena, user.contrasena);
+        if (!match) {
+            return res.status(401).json({ error: 'Contraseña incorrecta' });
         }
 
-        // Si la autenticación es exitosa
-        res.status(200).send('Login exitoso');
+        // Crear el token
+        const token = jwt.sign({ id: user.id, nombre: user.nombre, correo: user.correo }, process.env.JWT_SECRET || 'secretKey', { expiresIn: '1h' });
+        res.status(200).json({ token });
     } catch (error) {
-        console.error('Error en el login:', error);
-        res.status(500).send('Error en el login: ' + error.message);
+        res.status(500).json({ error: 'Error en el login: ' + error.message });
     }
 });
+
+// Middleware para autenticar el token
+const authenticateJWT = (req, res, next) => {
+    const token = req.header('Authorization')?.split(' ')[1];
+    if (token) {
+        jwt.verify(token, process.env.JWT_SECRET || 'secretKey', (err, user) => {
+            if (err) {
+                return res.sendStatus(403);
+            }
+            req.user = user;
+            next();
+        });
+    } else {
+        res.sendStatus(401);
+    }
+};
+
+// Endpoint para obtener los datos del usuario logueado
+app.get('/usuario', authenticateJWT, (req, res) => {
+    res.json(req.user);
+});
+
+// Endpoint para obtener productos
 app.get('/productos', async (req, res) => {
     try {
         const request = new sql.Request();
         const result = await request.query('SELECT id, nombre, descripcion, precio, cantidad_en_stock, fecha_creacion FROM productos');
-        
-        res.status(200).json(result.recordset); // Enviar los productos como JSON
+        res.status(200).json(result.recordset);
     } catch (error) {
-        console.error('Error al obtener los productos:', error);
-        res.status(500).send('Error al obtener los productos');
+        res.status(500).json({ error: 'Error al obtener los productos' });
     }
 });
+
+// Ruta para agregar productos
 app.post('/productos', async (req, res) => {
     const { nombre, descripcion, precio, cantidad_en_stock } = req.body;
 
+    // Validar datos
     if (!nombre || !descripcion || !precio || !cantidad_en_stock) {
-        return res.status(400).send('Faltan datos requeridos: nombre, descripcion, precio y cantidad_en_stock');
+        return res.status(400).json({ error: 'Faltan datos requeridos: nombre, descripcion, precio y cantidad_en_stock' });
     }
 
     try {
@@ -133,9 +154,8 @@ app.post('/productos', async (req, res) => {
         request.input('cantidad_en_stock', sql.Int, cantidad_en_stock);
 
         await request.query(query);
-        res.status(201).send('Producto agregado exitosamente');
+        res.status(201).json({ message: 'Producto agregado exitosamente' });
     } catch (error) {
-        console.error('Error al agregar el producto:', error.message);
-        res.status(500).send('Error al agregar el producto en la base de datos: ' + error.message);
+        res.status(500).json({ error: 'Error al agregar el producto en la base de datos: ' + error.message });
     }
 });
